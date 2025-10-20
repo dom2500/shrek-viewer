@@ -1,110 +1,92 @@
 <!doctype html>
-<html lang="de">
+<html>
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Three.js 3D Viewer (Minimal)</title>
-  <style>
-    html,body{height:100%;margin:0}
-    body{background:#0b1020;color:#e5e9f0;font-family:system-ui,Arial}
-    #app{position:fixed;inset:0}
-    .hud{position:fixed;left:12px;top:12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.15);backdrop-filter:blur(8px);
-         border-radius:12px;padding:8px 10px;font-size:14px}
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Three Minimal</title>
+<style>
+  html,body{height:100%;margin:0}
+  #app{position:fixed;inset:0}
+</style>
 </head>
 <body>
-  <div id="app"></div>
-  <div class="hud">Orbit: Maus ziehen • Zoom: Scroll • Pan: Shift+Ziehen</div>
+<div id="app"></div>
+<script type="module">
+import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js";
+import { OrbitControls } from "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/controls/OrbitControls.js";
+import { GLTFLoader } from "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/GLTFLoader.js";
 
-  <script type="module">
-    import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
-    import { OrbitControls } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/controls/OrbitControls.js';
-    import { GLTFLoader } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/GLTFLoader.js';
+let scene; let camera; let renderer; let controls; let modelRoot;
 
-    let scene, camera, renderer, controls, modelRoot;
+init();
+animate();
 
-    init();
-    animate();
+function init(){
+  renderer = new THREE.WebGLRenderer({ antialias:true });
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  document.getElementById("app").appendChild(renderer.domElement);
+  window.addEventListener("resize", onResize);
 
-    function init(){
-      // Renderer
-      renderer = new THREE.WebGLRenderer({ antialias:true });
-      renderer.setSize(window.innerWidth, window.innerHeight);
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-      renderer.outputColorSpace = THREE.SRGBColorSpace;
-      document.getElementById('app').appendChild(renderer.domElement);
-      window.addEventListener('resize', onResize);
+  scene = new THREE.Scene();
+  camera = new THREE.PerspectiveCamera(45, window.innerWidth/window.innerHeight, 0.1, 200);
+  camera.position.set(2.2,1.4,2.4);
 
-      // Scene & camera
-      scene = new THREE.Scene();
-      camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 200);
-      camera.position.set(2.2, 1.4, 2.4);
+  controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
+  controls.target.set(0,1,0);
 
-      // Controls
-      controls = new OrbitControls(camera, renderer.domElement);
-      controls.enableDamping = true;
-      controls.target.set(0, 1.0, 0);
+  const hemi = new THREE.HemisphereLight(0xe0f7ff, 0x222233, 0.6);
+  scene.add(hemi);
+  const dir = new THREE.DirectionalLight(0xffffff, 1.2);
+  dir.position.set(3,5,3);
+  scene.add(dir);
 
-      // Lights
-      scene.add(new THREE.HemisphereLight(0xe0f7ff, 0x222233, 0.6));
-      const dir = new THREE.DirectionalLight(0xffffff, 1.2);
-      dir.position.set(3, 5, 3);
-      scene.add(dir);
+  modelRoot = new THREE.Group();
+  scene.add(modelRoot);
 
-      // Ground shadow (simple)
-      const ground = new THREE.Mesh(new THREE.CircleGeometry(5, 64), new THREE.MeshBasicMaterial({ color: 0x0b1020 }));
-      ground.rotation.x = -Math.PI/2;
-      ground.position.y = 0;
-      scene.add(ground);
+  loadGLB("assets/shrek.glb").catch(setFallback);
+}
 
-      // Root for model
-      modelRoot = new THREE.Group();
-      scene.add(modelRoot);
+function onResize(){
+  const w = window.innerWidth; const h = window.innerHeight;
+  renderer.setSize(w,h);
+  camera.aspect = w/h;
+  camera.updateProjectionMatrix();
+}
 
-      // Try to load GLB, else fallback
-      loadGLB('assets/shrek.glb').catch(setFallback);
-    }
+function animate(){
+  requestAnimationFrame(animate);
+  controls.update();
+  renderer.render(scene, camera);
+}
 
-    function onResize(){
-      const w = window.innerWidth, h = window.innerHeight;
-      renderer.setSize(w, h);
-      camera.aspect = w / h;
-      camera.updateProjectionMatrix();
-    }
+async function loadGLB(url){
+  const loader = new GLTFLoader();
+  const gltf = await loader.loadAsync(url);
+  setModel(gltf.scene);
+}
 
-    function animate(){
-      requestAnimationFrame(animate);
-      controls.update();
-      renderer.render(scene, camera);
-    }
+function setModel(obj){
+  modelRoot.clear();
+  obj.traverse(o => { if(o.isMesh){ o.castShadow = true; o.receiveShadow = true; } });
+  const box = new THREE.Box3().setFromObject(obj);
+  const size = box.getSize(new THREE.Vector3());
+  const center = box.getCenter(new THREE.Vector3());
+  const maxDim = Math.max(size.x, size.y, size.z, 1);
+  const scale = 1.2 / maxDim;
+  obj.scale.setScalar(scale);
+  obj.position.sub(center.multiplyScalar(scale));
+  modelRoot.add(obj);
+}
 
-    async function loadGLB(url){
-      const loader = new GLTFLoader();
-      const gltf = await loader.loadAsync(url); // <-- wenn 404, wirft ein Error (wird vom .catch oben abgefangen)
-      setModel(gltf.scene);
-    }
-
-    function setModel(obj){
-      modelRoot.clear();
-      obj.traverse(o => { if(o.isMesh){ o.castShadow = true; o.receiveShadow = true; } });
-      const box = new THREE.Box3().setFromObject(obj);
-      const size = box.getSize(new THREE.Vector3());
-      const center = box.getCenter(new THREE.Vector3());
-      const scale = 1.2 / Math.max(size.x, size.y, size.z || 1);
-      obj.scale.setScalar(scale);
-      obj.position.sub(center.multiplyScalar(scale));
-      modelRoot.add(obj);
-    }
-
-    function setFallback(){
-      // einfacher Platzhalter (damit du sofort was siehst)
-      modelRoot.clear();
-      const mesh = new THREE.Mesh(
-        new THREE.TorusKnotGeometry(0.6, 0.22, 220, 32),
-        new THREE.MeshStandardMaterial({ metalness: 0.7, roughness: 0.25, color: 0x7cfc75 })
-      );
-      modelRoot.add(mesh);
-    }
-  </script>
+function setFallback(){
+  modelRoot.clear();
+  const geo = new THREE.TorusKnotGeometry(0.6,0.22,220,32);
+  const mat = new THREE.MeshStandardMaterial({ metalness:0.7, roughness:0.25 });
+  const m = new THREE.Mesh(geo, mat);
+  modelRoot.add(m);
+}
+</script>
 </body>
 </html>
