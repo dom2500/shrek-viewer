@@ -1,91 +1,130 @@
-<!doctype html>
-<html>
+<!DOCTYPE html>
+<html lang="de">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Three Minimal</title>
-<style>
-  html,body{height:100%;margin:0}
-  #app{position:fixed;inset:0}
-</style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Shrek 3D Viewer 🧅</title>
+  <style>
+    html, body { margin:0; height:100%; overflow:hidden; background:#111; }
+    #app { position:fixed; inset:0; }
+    .loading {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #8fd16a;
+      font-family: sans-serif;
+      font-size: 1.2em;
+    }
+  </style>
 </head>
 <body>
 <div id="app"></div>
+<div id="loading" class="loading">🧅 Shrek wird geladen ...</div>
+
 <script type="module">
 import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js";
 import { OrbitControls } from "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/controls/OrbitControls.js";
 import { GLTFLoader } from "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/GLTFLoader.js";
 
-let scene; let camera; let renderer; let controls; let modelRoot;
+let scene, camera, renderer, controls, modelRoot;
 
 init();
 animate();
 
-function init(){
-  renderer = new THREE.WebGLRenderer({ antialias:true });
-  renderer.setSize(window.innerWidth, window.innerHeight);
+function init() {
+  // === RENDERER ===
+  renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   document.getElementById("app").appendChild(renderer.domElement);
-  window.addEventListener("resize", onResize);
 
+  // === SCENE ===
   scene = new THREE.Scene();
-  camera = new THREE.PerspectiveCamera(45, window.innerWidth/window.innerHeight, 0.1, 200);
-  camera.position.set(2.2,1.4,2.4);
+  scene.background = new THREE.Color(0x222222);
 
+  // === CAMERA ===
+  camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
+  camera.position.set(2.2, 1.5, 2.5);
+
+  // === CONTROLS ===
   controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
-  controls.target.set(0,1,0);
+  controls.target.set(0, 1, 0);
 
-  const hemi = new THREE.HemisphereLight(0xe0f7ff, 0x222233, 0.6);
-  scene.add(hemi);
-  const dir = new THREE.DirectionalLight(0xffffff, 1.2);
-  dir.position.set(3,5,3);
-  scene.add(dir);
+  // === LIGHTS ===
+  const hemiLight = new THREE.HemisphereLight(0xe0f7ff, 0x222233, 0.6);
+  scene.add(hemiLight);
 
+  const dirLight = new THREE.DirectionalLight(0xffffff, 1.1);
+  dirLight.position.set(3, 5, 3);
+  dirLight.castShadow = true;
+  scene.add(dirLight);
+
+  // === ROOT GROUP ===
   modelRoot = new THREE.Group();
   scene.add(modelRoot);
 
-  loadGLB("assets/shrek.glb").catch(setFallback);
+  // === RESIZE ===
+  window.addEventListener("resize", onResize);
+
+  // === LOAD MODEL ===
+  loadModel("./assets/shrek.glb");
 }
 
-function onResize(){
-  const w = window.innerWidth; const h = window.innerHeight;
-  renderer.setSize(w,h);
-  camera.aspect = w/h;
+function onResize() {
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+  renderer.setSize(w, h);
+  camera.aspect = w / h;
   camera.updateProjectionMatrix();
 }
 
-function animate(){
+async function loadModel(path) {
+  const loader = new GLTFLoader();
+
+  try {
+    const gltf = await loader.loadAsync(path);
+    const obj = gltf.scene;
+
+    // Schatten und Skalierung
+    obj.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+
+    // Auto-Zentrierung und Skalierung
+    const box = new THREE.Box3().setFromObject(obj);
+    const size = box.getSize(new THREE.Vector3());
+    const center = box.getCenter(new THREE.Vector3());
+    const maxDim = Math.max(size.x, size.y, size.z);
+    const scale = 1.5 / maxDim;
+
+    obj.scale.setScalar(scale);
+    obj.position.sub(center.multiplyScalar(scale));
+
+    modelRoot.add(obj);
+
+    document.getElementById("loading").style.display = "none";
+    console.log("✅ Shrek geladen!");
+  } catch (err) {
+    console.error("❌ Fehler beim Laden von Shrek:", err);
+    showFallback();
+  }
+}
+
+function showFallback() {
+  document.getElementById("loading").innerText = "Fehler beim Laden 🧅";
+  const geo = new THREE.TorusKnotGeometry(0.6, 0.22, 220, 32);
+  const mat = new THREE.MeshStandardMaterial({ color: 0x00ffcc, metalness: 0.5, roughness: 0.3 });
+  const torus = new THREE.Mesh(geo, mat);
+  modelRoot.add(torus);
+}
+
+function animate() {
   requestAnimationFrame(animate);
   controls.update();
   renderer.render(scene, camera);
-}
-
-async function loadGLB(url){
-  const loader = new GLTFLoader();
-  const gltf = await loader.loadAsync(url);
-  setModel(gltf.scene);
-}
-
-function setModel(obj){
-  modelRoot.clear();
-  obj.traverse(o => { if(o.isMesh){ o.castShadow = true; o.receiveShadow = true; } });
-  const box = new THREE.Box3().setFromObject(obj);
-  const size = box.getSize(new THREE.Vector3());
-  const center = box.getCenter(new THREE.Vector3());
-  const maxDim = Math.max(size.x, size.y, size.z, 1);
-  const scale = 1.2 / maxDim;
-  obj.scale.setScalar(scale);
-  obj.position.sub(center.multiplyScalar(scale));
-  modelRoot.add(obj);
-}
-
-function setFallback(){
-  modelRoot.clear();
-  const geo = new THREE.TorusKnotGeometry(0.6,0.22,220,32);
-  const mat = new THREE.MeshStandardMaterial({ metalness:0.7, roughness:0.25 });
-  const m = new THREE.Mesh(geo, mat);
-  modelRoot.add(m);
 }
 </script>
 </body>
