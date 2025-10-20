@@ -3,285 +3,108 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Shrek 3D Viewer – three.js</title>
+  <title>Three.js 3D Viewer (Minimal)</title>
   <style>
-    :root{
-      --bg0:#0b1020; --bg1:#121a33; --fg:#e5e9f0; --muted:#a0a8b8; --accent:#7cfc75; /* ogre green :) */
-    }
-    html,body{height:100%; margin:0;}
-    body{
-      background: radial-gradient(1200px 800px at 80% -10%, #223 0%, var(--bg0) 60%),
-                  radial-gradient(1200px 800px at -10% 120%, #1a213a 0%, var(--bg1) 60%);
-      color:var(--fg);
-      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
-      overflow:hidden;
-    }
-    #app{position:fixed; inset:0;}
-    canvas{display:block;}
-    .hud{
-      position:fixed; top:16px; left:16px; right:16px; display:flex; gap:12px; align-items:center; justify-content:space-between; pointer-events:none;
-    }
-    .card{
-      pointer-events:auto;
-      backdrop-filter: blur(12px);
-      background: rgba(20, 26, 52, 0.5);
-      border: 1px solid rgba(255,255,255,0.08);
-      box-shadow: 0 10px 30px rgba(0,0,0,0.35);
-      border-radius: 16px; padding: 10px 14px; display:flex; gap:10px; align-items:center;
-    }
-    .brand{font-weight:700; letter-spacing:.3px}
-    .muted{color:var(--muted); font-size:12px}
-    .controls{display:flex; gap:10px; flex-wrap:wrap}
-    button, label.file {
-      pointer-events:auto;
-      border:1px solid rgba(255,255,255,0.12);
-      background:linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
-      color:var(--fg);
-      padding:8px 12px; border-radius:12px; font-size:14px; cursor:pointer;
-      transition:.2s transform ease, .2s background ease, .2s border-color ease; user-select:none;
-    }
-    button:hover, label.file:hover{ transform:translateY(-1px); border-color: rgba(255,255,255,0.25);}    
-    button:active{ transform:translateY(0); }
-    input[type="range"]{ width:160px; }
-    .pill{ color:#0a0; background:rgba(124,252,117,.12); border-color:rgba(124,252,117,.4); }
-    .footer{ position:fixed; left:16px; bottom:16px; right:16px; display:flex; align-items:center; justify-content:space-between; }
-    .hint{ font-size:12px; color:var(--muted);} 
-    a{color:var(--accent); text-decoration:none}
-    a:hover{text-decoration:underline}
-    .file input{ display:none; }
-    .error{position:fixed;left:16px;top:64px;max-width:520px;z-index:9999;background:rgba(255,50,50,.12);border:1px solid rgba(255,50,50,.45);color:#ffdede;padding:10px 14px;border-radius:12px;font-size:13px;backdrop-filter:blur(8px);display:none;white-space:pre-wrap}
-</style>
+    html,body{height:100%;margin:0}
+    body{background:#0b1020;color:#e5e9f0;font-family:system-ui,Arial}
+    #app{position:fixed;inset:0}
+    .hud{position:fixed;left:12px;top:12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.15);backdrop-filter:blur(8px);
+         border-radius:12px;padding:8px 10px;font-size:14px}
+  </style>
 </head>
 <body>
   <div id="app"></div>
-  <div id="error" class="error"></div>
-  <div class="hud">
-    <div class="card">
-      <div class="brand">Shrek 3D Viewer</div>
-      <div class="muted">Orbit • Scroll = Zoom • Shift + Drag = Pan</div>
-    </div>
-
-    <div class="controls">
-      <label class="file card" title="Eigenes .glb/.gltf laden">
-        <input id="file" type="file" accept=".glb,.gltf,.vrm,model/gltf-binary,model/gltf+json" />
-        <span>📁 Modell laden</span>
-      </label>
-      <button id="reset" class="card">Szene zurücksetzen</button>
-      <button id="bg" class="card">Hintergrund wechseln</button>
-      <button id="autorotate" class="card">Auto-Rotate</button>
-      <div class="card">
-        <span class="muted">Belichtung</span>
-        <input id="exposure" type="range" min="0.5" max="1.5" value="1" step="0.01" />
-      </div>
-    </div>
-  </div>
-
-  <div class="footer">
-    <div class="hint">Lege <code>assets/shrek.glb</code> in dein Repo, oder benutze oben „Modell laden“. Achte auf Rechte, wenn du markenrechtlich geschützte Figuren verwendest.</div>
-    <div class="hint">Made with <a href="https://threejs.org/" target="_blank" rel="noreferrer">three.js</a></div>
-  </div>
+  <div class="hud">Orbit: Maus ziehen • Zoom: Scroll • Pan: Shift+Ziehen</div>
 
   <script type="module">
     import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
     import { OrbitControls } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/controls/OrbitControls.js';
     import { GLTFLoader } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/GLTFLoader.js';
-    import { RGBELoader } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/RGBELoader.js';
 
-    let renderer, scene, camera, controls, composer;
-    let modelRoot = new THREE.Group();
-    let defaultModel;
-
-    const app = document.getElementById('app');
+    let scene, camera, renderer, controls, modelRoot;
 
     init();
     animate();
 
-    async function init(){
-      log('init');
+    function init(){
       // Renderer
-      renderer = new THREE.WebGLRenderer({ antialias:true, alpha:true });
+      renderer = new THREE.WebGLRenderer({ antialias:true });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
       renderer.outputColorSpace = THREE.SRGBColorSpace;
-      renderer.toneMapping = THREE.ACESFilmicToneMapping;
-      renderer.toneMappingExposure = 1.0;
-      renderer.shadowMap.enabled = true;
-      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-      resize();
-      window.addEventListener('resize', resize);
-      app.appendChild(renderer.domElement);
-      ok('Renderer initialisiert.');
+      document.getElementById('app').appendChild(renderer.domElement);
+      window.addEventListener('resize', onResize);
 
       // Scene & camera
       scene = new THREE.Scene();
-      ok('Szene erstellt.');
       camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 200);
-      ok('Kamera bereit.');
       camera.position.set(2.2, 1.4, 2.4);
 
       // Controls
       controls = new OrbitControls(camera, renderer.domElement);
       controls.enableDamping = true;
-      controls.dampingFactor = 0.06;
-      controls.target.set(0, 1.1, 0);
+      controls.target.set(0, 1.0, 0);
 
-      // Lighting
-      const hemi = new THREE.HemisphereLight(0xe0f7ff, 0x222233, 0.6);
-      scene.add(hemi);
-
+      // Lights
+      scene.add(new THREE.HemisphereLight(0xe0f7ff, 0x222233, 0.6));
       const dir = new THREE.DirectionalLight(0xffffff, 1.2);
       dir.position.set(3, 5, 3);
-      dir.castShadow = true;
-      dir.shadow.mapSize.set(2048, 2048);
-      dir.shadow.camera.near = 0.5;
-      dir.shadow.camera.far = 20;
       scene.add(dir);
 
-      // Ground
-      const groundGeo = new THREE.CircleGeometry(5, 64);
-      const groundMat = new THREE.ShadowMaterial({ opacity: 0.25 });
-      const ground = new THREE.Mesh(groundGeo, groundMat);
-      ground.receiveShadow = true;
+      // Ground shadow (simple)
+      const ground = new THREE.Mesh(new THREE.CircleGeometry(5, 64), new THREE.MeshBasicMaterial({ color: 0x0b1020 }));
       ground.rotation.x = -Math.PI/2;
       ground.position.y = 0;
       scene.add(ground);
 
-      // Subtle fog for depth
-      scene.fog = new THREE.Fog(0x0b1020, 10, 18);
-
-      // Environment (optional HDR)
-      try{
-        const pmrem = new THREE.PMREMGenerator(renderer);
-        const hdr = await new RGBELoader().loadAsync('assets/studio_small_09_2k.hdr');
-        const envMap = pmrem.fromEquirectangular(hdr).texture;
-        scene.environment = envMap;
-        hdr.dispose?.(); pmrem.dispose();
-      }catch(e){ /* if missing, it's fine */ }
-
-      // Model root
+      // Root for model
+      modelRoot = new THREE.Group();
       scene.add(modelRoot);
 
-      // quick sanity cube (falls GLB fehlt)
-      const sanity = new THREE.Mesh(new THREE.BoxGeometry(0.2,0.2,0.2), new THREE.MeshStandardMaterial({roughness:.6, metalness:.1}));
-      sanity.position.set(-0.8,1,0);
-      sanity.name = 'sanityCube';
-      scene.add(sanity);
-      ok('Sanity-Cube sichtbar (Debug).');
-
-      // Try to load default model
-      loadModel('assets/shrek.glb').then(()=>ok('GLB geladen: assets/shrek.glb')).catch(async () => {
-        defaultModel = await makeFallback();
-        modelRoot.add(defaultModel);
-        warn('Kein GLB gefunden – Platzhalter angezeigt.');
-      });
-        modelRoot.add(defaultModel);
-      });
-
-      // UI hooks
-      document.getElementById('bg').addEventListener('click', cycleBg);
-      document.getElementById('autorotate').addEventListener('click', () => controls.autoRotate = !controls.autoRotate);
-      document.getElementById('reset').addEventListener('click', resetView);
-      document.getElementById('exposure').addEventListener('input', (e)=>{
-        renderer.toneMappingExposure = Number(e.target.value);
-      });
-      document.getElementById('file').addEventListener('change', onFile);
-
-      // Drag & drop support
-      window.addEventListener('dragover', e=>{ e.preventDefault(); });
-      window.addEventListener('drop', (e)=>{
-        e.preventDefault();
-        if(e.dataTransfer.files?.[0]){
-          handleFile(e.dataTransfer.files[0]);
-        }
-      });
+      // Try to load GLB, else fallback
+      loadGLB('assets/shrek.glb').catch(setFallback);
     }
 
-    function resize(){
+    function onResize(){
       const w = window.innerWidth, h = window.innerHeight;
-      renderer.setSize(w, h); renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-      if(camera){ camera.aspect = w/h; camera.updateProjectionMatrix(); }
+      renderer.setSize(w, h);
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
     }
 
     function animate(){
-      // simple heartbeat
-      const cube = scene.getObjectByName('sanityCube');
-      if(cube){ cube.rotation.y += 0.01; }
-
       requestAnimationFrame(animate);
-      controls?.update();
+      controls.update();
       renderer.render(scene, camera);
     }
 
-    async function loadModel(url){
+    async function loadGLB(url){
       const loader = new GLTFLoader();
-      const gltf = await loader.loadAsync(url);
+      const gltf = await loader.loadAsync(url); // <-- wenn 404, wirft ein Error (wird vom .catch oben abgefangen)
       setModel(gltf.scene);
     }
 
-    function setModel(object3d){
-      // Clear old
+    function setModel(obj){
       modelRoot.clear();
-      // Normalize scale & center
-      object3d.traverse(o=>{ if(o.isMesh){ o.castShadow = true; o.receiveShadow = true; o.material.depthWrite = true; } });
-      const box = new THREE.Box3().setFromObject(object3d);
+      obj.traverse(o => { if(o.isMesh){ o.castShadow = true; o.receiveShadow = true; } });
+      const box = new THREE.Box3().setFromObject(obj);
       const size = box.getSize(new THREE.Vector3());
       const center = box.getCenter(new THREE.Vector3());
-      const scale = 1.2 / Math.max(size.x, size.y, size.z);
-      object3d.scale.setScalar(scale);
-      object3d.position.sub(center.multiplyScalar(scale));
-      modelRoot.add(object3d);
+      const scale = 1.2 / Math.max(size.x, size.y, size.z || 1);
+      obj.scale.setScalar(scale);
+      obj.position.sub(center.multiplyScalar(scale));
+      modelRoot.add(obj);
     }
 
-    async function makeFallback(){
-      // A simple friendly placeholder (torus-knot) while a model is not present
-      const geo = new THREE.TorusKnotGeometry(0.6, 0.22, 220, 32);
-      const mat = new THREE.MeshStandardMaterial({ metalness: 0.7, roughness: 0.25, color: 0x7cfc75 });
-      const m = new THREE.Mesh(geo, mat);
-      m.castShadow = true; m.receiveShadow = true;
-      return m;
+    function setFallback(){
+      // einfacher Platzhalter (damit du sofort was siehst)
+      modelRoot.clear();
+      const mesh = new THREE.Mesh(
+        new THREE.TorusKnotGeometry(0.6, 0.22, 220, 32),
+        new THREE.MeshStandardMaterial({ metalness: 0.7, roughness: 0.25, color: 0x7cfc75 })
+      );
+      modelRoot.add(mesh);
     }
-
-    function cycleBg(){
-      const bgs = [
-        'radial-gradient(1200px 800px at 80% -10%, #223 0%, #0b1020 60%), radial-gradient(1200px 800px at -10% 120%, #1a213a 0%, #121a33 60%)',
-        'radial-gradient(1000px 700px at 10% -10%, #1a2 0%, #021 60%), radial-gradient(1000px 700px at 110% 110%, #042 0%, #011 60%)',
-        'radial-gradient(1000px 700px at 50% -10%, #302050 0%, #0b1020 70%), radial-gradient(1000px 700px at -10% 110%, #203050 0%, #121a33 70%)'
-      ];
-      const b = document.body.style.backgroundImage;
-      const i = bgs.findIndex(x=>x===b);
-      document.body.style.backgroundImage = bgs[(i+1)%bgs.length];
-    }
-
-    function resetView(){
-      controls.reset();
-      camera.position.set(2.2, 1.4, 2.4);
-      controls.target.set(0, 1.1, 0);
-      controls.update();
-    }
-
-    function onFile(e){
-      const file = e.target.files?.[0];
-      if(file) handleFile(file);
-    }
-
-    function handleFile(file){
-      const url = URL.createObjectURL(file);
-      const loader = new GLTFLoader();
-      loader.load(url, (gltf)=>{
-        setModel(gltf.scene);
-        URL.revokeObjectURL(url);
-      }, undefined, (err)=>{
-        console.error(err);
-        alert('Konnte das Modell nicht laden. Unterstützt: .glb/.gltf');
-      });
-    }
-      // Debug helpers
-    const errBox = document.getElementById('error');
-    function showError(msg){ errBox.style.display='block'; errBox.textContent = msg; }
-    function log(...a){ console.log('[Viewer]',...a); }
-    function ok(msg){ console.log('%c✓','color:lightgreen', msg); }
-    function warn(msg){ console.warn(msg); }
-
-    window.addEventListener('error', (e)=>{ showError('Script-Fehler: '+ e.message); });
-    window.addEventListener('unhandledrejection', (e)=>{ showError('Promise-Fehler: '+ (e.reason?.message||e.reason));});
   </script>
 </body>
 </html>
