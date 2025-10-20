@@ -85,33 +85,30 @@ function onResize() {
 
 async function loadModel(path) {
   const loader = new GLTFLoader();
+  console.log("🔍 Versuche Modell zu laden:", path);
 
   try {
     const gltf = await loader.loadAsync(path);
+    console.log("✅ Modell geladen:", gltf);
     const obj = gltf.scene;
 
-    // Schatten und Skalierung
     obj.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
 
-    // Auto-Zentrierung und Skalierung
     const box = new THREE.Box3().setFromObject(obj);
     const size = box.getSize(new THREE.Vector3());
     const center = box.getCenter(new THREE.Vector3());
-    const maxDim = Math.max(size.x, size.y, size.z);
-    const scale = 1.5 / maxDim;
-
+    const scale = 1.5 / Math.max(size.x, size.y, size.z);
     obj.scale.setScalar(scale);
     obj.position.sub(center.multiplyScalar(scale));
 
     modelRoot.add(obj);
-
     document.getElementById("loading").style.display = "none";
-    console.log("✅ Shrek geladen!");
   } catch (err) {
-    console.error("❌ Fehler beim Laden von Shrek:", err);
-    showFallback();
+    console.error("❌ Fehler beim Laden:", err);
+    document.getElementById("loading").innerText = "Fehler beim Laden von Shrek 🧅";
   }
 }
+
 
 function showFallback() {
   document.getElementById("loading").innerText = "Fehler beim Laden 🧅";
